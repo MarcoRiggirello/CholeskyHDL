@@ -1,4 +1,11 @@
+import os
+from pathlib import Path
+import logging
+
+import pytest
+
 import numpy as np
+
 from apytypes import APyFixed, APyFixedArray
 from apytypes import QuantizationMode
 from apytypes import OverflowMode
@@ -6,14 +13,9 @@ from apytypes import OverflowMode
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge
-
 from cocotb_tools.runner import get_runner
 
-import pytest
 
-import os
-from pathlib import Path
-import logging
 logger = logging.getLogger(__name__)
 
 
