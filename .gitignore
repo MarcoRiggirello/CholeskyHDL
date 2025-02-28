@@ -1,3 +1,9 @@
+# Documents that are around
+*.pdf
+
+# CocoTB sim build
+test/sim_build/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
