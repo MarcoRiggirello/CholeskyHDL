@@ -1,0 +1,10 @@
+[project]
+name = "CholeskyHDL"
+version = "0.1.1"
+
+dependencies = [
+	"apytypes @ git+https://github.com/apytypes/apytypes.git@55462b517ed2e7296bc93f590939d8b16d8647ca",
+	"cocotb @ git+https://github.com/cocotb/cocotb@f3c2b365f8f1dc4acc6f31aa286591cb426e23e9",
+	"numpy>=2.2",
+	"pytest>=8.3.4"
+]
