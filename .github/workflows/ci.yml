@@ -19,7 +19,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install -r pyproject.toml
+        pip install .
 
     - name: Set up NVC
     - uses: nickg/setup-nvc-ci@v1

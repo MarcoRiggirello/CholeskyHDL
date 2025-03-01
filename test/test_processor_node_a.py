@@ -20,47 +20,73 @@ logger = logging.getLogger(__name__)
 
 
 class ProcessorNode:
+    """
+        Base class to implement test of the processor
+        nodes of the systolic array architecture.
+    """
+
     def __init__(self, dut):
         self.dut = dut
         self.rng = np.random.default_rng()
 
     def data_in_ports(self):
+        """
+            Returns a list of handlers. Must be specialized in child classes.
+        """
         logger.error(
             "The method is not overloaded by child class, test cannot work."
         )
         return [self.dut.noinput,]
 
     def data_in_int_bits(self):
+        """
+            Returns a list of integers. Must be specialized in child classes.
+        """
         logger.error(
             "The method is not overloaded by child class, test cannot work."
         )
         return [None,]
 
     def data_in_frac_bits(self):
+        """
+            Returns a list of integers. Must be specialized in child classes.
+        """
         logger.error(
             "The method is not overloaded by child class, test cannot work."
         )
         return [None,]
 
     def data_out_ports(self):
+        """
+            Returns a list of handlers. Must be specialized in child classes.
+        """
         logger.error(
             "The method is not overloaded by child class, test cannot work."
         )
         return [self.dut.nooutput,]
 
     def data_out_int_bits(self):
+        """
+            Returns a list of integers. Must be specialized in child classes.
+        """
         logger.error(
             "The method is not overloaded by child class, test cannot work."
         )
         return [None,]
 
     def data_out_frac_bits(self):
+        """
+            Returns a list of integers. Must be specialized in child classes.
+        """
         logger.error(
             "The method is not overloaded by child class, test cannot work."
         )
         return [None,]
 
     def random_fixed_array(self, length, int_bits, frac_bits):
+        """
+            Generate a random fixed point number.
+        """
         bits = int_bits + frac_bits
         MAX_VALUE = (2 ** (bits - 1) - 1) / 2 ** frac_bits
         MIN_VALUE = -(2 ** (bits - 1)) / 2 ** frac_bits
@@ -77,6 +103,9 @@ class ProcessorNode:
         return ap_data
 
     def random_data_in_arrays(self, length):
+        """
+            Generate a list of array of data for each in port.
+        """
         int_bits = self.data_in_int_bits()
         frac_bits = self.data_in_frac_bits()
 
@@ -85,12 +114,19 @@ class ProcessorNode:
         return data_in
 
     def expected_output_uncasted(self, data_in):
+        """
+            The expected out value with full precision.
+            Must be specialized in child class.
+        """
         logger.error(
             "The method is not overloaded by child class, test cannot work."
         )
         return [APyFixed(data_in, 1, 1), ]
 
     def expected_output(self, data_in):
+        """
+            The expected output with the given out precision.
+        """
         int_bits = self.data_out_int_bits()
         frac_bits = self.data_out_frac_bits()
 
@@ -122,6 +158,9 @@ class ProcessorNode:
         return data_out
 
     async def test_processor_node(self, N):
+        """
+            Test loop.
+        """
         # generate random input data
         data_in = self.random_data_in_arrays(N+3)
 
