@@ -22,9 +22,9 @@ jobs:
         pip install .
 
     - name: Set up NVC
-    - uses: nickg/setup-nvc-ci@v1
+      uses: nickg/setup-nvc-ci@v1
       with:
-      version: latest
+        version: latest
 
     - name: Run tests
       run: pytest
