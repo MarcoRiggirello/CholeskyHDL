@@ -131,14 +131,15 @@ def test_runner(in_i, in_f, out_s_i, out_s_f):
         sources=sources,
         hdl_toplevel="processor_node_a",
         always=True,
-        build_dir="sim_build/processor_node_a",
+        build_dir=f"sim_build/processor_node_a_in_{
+            in_i}_{in_f}_out_{out_i}_{out_f}",
         parameters=generics
     )
 
     runner.test(
         hdl_toplevel="processor_node_a",
         test_module="test_processor_node_a",
-        plusargs=[f"--wave=in_{in_i}_{in_f}_out_{out_i}_{out_f}.fst"],
+        plusargs=["--wave=test.fst"],
     )
 
 
