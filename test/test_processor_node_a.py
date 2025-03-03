@@ -1,207 +1,37 @@
+"""
+------------------------------
+------------------------------
+--- Cholesky factorization ---
+---        using           ---
+--- systolic architecture  ---
+------------------------------
+------------------------------
+--- Marco Riggirello, 2025 ---
+------------------------------
+------------------------------
+"""
+
 import os
 from pathlib import Path
 import logging
 
 import pytest
 
-import numpy as np
-
-from apytypes import APyFixed, APyFixedArray
-from apytypes import QuantizationMode
-from apytypes import OverflowMode
 
 import cocotb
-from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge
 from cocotb_tools.runner import get_runner
 
+from test_processor_node import ProcessorNode
 
 logger = logging.getLogger(__name__)
 
 
-class ProcessorNode:
-    """
-        Base class to implement test of the processor
-        nodes of the systolic array architecture.
-    """
-
-    def __init__(self, dut):
-        self.dut = dut
-        self.rng = np.random.default_rng()
-
-    def data_in_ports(self):
-        """
-            Returns a list of handlers. Must be specialized in child classes.
-        """
-        logger.error(
-            "The method is not overloaded by child class, test cannot work."
-        )
-        return [self.dut.noinput,]
-
-    def data_in_int_bits(self):
-        """
-            Returns a list of integers. Must be specialized in child classes.
-        """
-        logger.error(
-            "The method is not overloaded by child class, test cannot work."
-        )
-        return [None,]
-
-    def data_in_frac_bits(self):
-        """
-            Returns a list of integers. Must be specialized in child classes.
-        """
-        logger.error(
-            "The method is not overloaded by child class, test cannot work."
-        )
-        return [None,]
-
-    def data_out_ports(self):
-        """
-            Returns a list of handlers. Must be specialized in child classes.
-        """
-        logger.error(
-            "The method is not overloaded by child class, test cannot work."
-        )
-        return [self.dut.nooutput,]
-
-    def data_out_int_bits(self):
-        """
-            Returns a list of integers. Must be specialized in child classes.
-        """
-        logger.error(
-            "The method is not overloaded by child class, test cannot work."
-        )
-        return [None,]
-
-    def data_out_frac_bits(self):
-        """
-            Returns a list of integers. Must be specialized in child classes.
-        """
-        logger.error(
-            "The method is not overloaded by child class, test cannot work."
-        )
-        return [None,]
-
-    def random_fixed_array(self, length, int_bits, frac_bits):
-        """
-            Generate a random fixed point number.
-        """
-        bits = int_bits + frac_bits
-        MAX_VALUE = (2 ** (bits - 1) - 1) / 2 ** frac_bits
-        MIN_VALUE = -(2 ** (bits - 1)) / 2 ** frac_bits
-        np_data = self.rng.uniform(
-            low=MIN_VALUE,
-            high=MAX_VALUE,
-            size=(length,)
-        )
-        ap_data = APyFixedArray.from_array(
-            np_data,
-            int_bits=int_bits,
-            frac_bits=frac_bits
-        )
-        return ap_data
-
-    def random_data_in_arrays(self, length):
-        """
-            Generate a list of array of data for each in port.
-        """
-        int_bits = self.data_in_int_bits()
-        frac_bits = self.data_in_frac_bits()
-
-        data_in = [self.random_fixed_array(length, i, f)
-                   for (i, f) in zip(int_bits, frac_bits)]
-        return data_in
-
-    def expected_output_uncasted(self, data_in):
-        """
-            The expected out value with full precision.
-            Must be specialized in child class.
-        """
-        logger.error(
-            "The method is not overloaded by child class, test cannot work."
-        )
-        return [APyFixed(data_in, 1, 1), ]
-
-    def expected_output(self, data_in):
-        """
-            The expected output with the given out precision.
-        """
-        int_bits = self.data_out_int_bits()
-        frac_bits = self.data_out_frac_bits()
-
-        data_out_uncasted = self.expected_output_uncasted(data_in)
-
-        data_out = [
-            d.cast(
-                int_bits=i,
-                frac_bits=f,
-                # we follow the sfixed library convention
-                # see IEEE 1076-2008 section G.4.4
-                quantization=QuantizationMode.RND_CONV,
-                overflow=OverflowMode.SAT
-            ) for (d, i, f) in zip(data_out_uncasted, int_bits, frac_bits)
-        ]
-
-        for du, dc, port in zip(
-            data_out_uncasted,
-            data_out,
-            self.data_out_ports()
-        ):
-            res = float(du - dc)
-            fu = float(du)
-            if abs(res) > 0.01 * abs(fu) and fu != 0:
-                pn = port._name
-                logger.warning(
-                    f"Truncation difference exceeded 1% for out port {pn}."
-                )
-        return data_out
-
-    async def test_processor_node(self, N):
-        """
-            Test loop.
-        """
-        # generate random input data
-        data_in = self.random_data_in_arrays(N+3)
-
-        # initialize the inputs
-        for port_in in self.data_in_ports():
-            port_in.value = 0
-
-        # reset the node
-        self.dut.rst.value = 1
-
-        # initialize the clock and enable computation
-        clk = Clock(self.dut.clk, 10, units="ns")
-        clk.start()
-
-        # remove the reset
-        await RisingEdge(self.dut.clk)
-        self.dut.rst.value = 0
-
-        for n, d_n in enumerate(zip(*data_in)):
-            await RisingEdge(self.dut.clk)
-
-            # set data in
-            for d, p in zip(d_n, self.data_in_ports()):
-                p.value = d.to_bits()
-
-            # we have 3 clk cycle latency for the output because:
-            # at +1clk the input is set
-            # at +2clk the values are in the node
-            # ar +3clk the out are out (2clk latency)
-            if n < 3:
-                continue
-
-            expect_out = self.expected_output([d[n - 3] for d in data_in])
-
-            for e, o in zip(expect_out, self.data_out_ports()):
-                assert o.value.to_unsigned() == e.to_bits()
-
-        clk.stop()
-
-
 class ProcessorNodeA(ProcessorNode):
+    """
+        Tests the processor nodes of type a)
+        as shown in fig 4 of reference article.
+    """
+
     def data_in_ports(self):
         return [
             self.dut.data_in_nw,
@@ -251,14 +81,17 @@ class ProcessorNodeA(ProcessorNode):
 
 @cocotb.test()
 async def a_processor_node_a(dut):
+    """
+        Make the cocotb test with 100 events.
+    """
     t = ProcessorNodeA(dut)
     await t.test_processor_node(100)
 
 
 input_int = [2 ** i for i in range(2, 6)]
 input_frac = [2 ** i for i in range(2, 6)]
-output_int = [i for i in range(2, 4)]
-output_frac = [i for i in range(2, 4)]
+output_int = range(2, 4)
+output_frac = range(2, 4)
 
 
 @pytest.mark.parametrize("in_i", input_int)
@@ -266,6 +99,9 @@ output_frac = [i for i in range(2, 4)]
 @pytest.mark.parametrize("out_s_i", output_int)
 @pytest.mark.parametrize("out_s_f", output_frac)
 def test_runner(in_i, in_f, out_s_i, out_s_f):
+    """
+        cocotb runner for different input/output sizes.
+    """
 
     sim = os.getenv("SIM", "nvc")
 
